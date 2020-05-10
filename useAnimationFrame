@@ -1,5 +1,6 @@
-// Maybe move to its own Hook File!
-export const useAnimationFrame = (
+import { useRef, useEffect } from "react"
+
+const useAnimationFrame = (
   callback: (deltaTime: number, time: number) => void
 ) => {
   const requestRef = useRef<number>();
@@ -23,3 +24,5 @@ export const useAnimationFrame = (
     };
   }); // Make sure the effect runs only once
 };
+
+export default useAnimationFrame;
