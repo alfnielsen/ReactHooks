@@ -1,4 +1,5 @@
 import React, { FC, useEffect, useRef, useState } from "react";
+import useAnimationFrame from "useAnimationFrame";
 
 export interface CanvasProps {
   width: number;
