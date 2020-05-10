@@ -11,6 +11,7 @@ interface IUseStateExtraOptions<T> {
    updateInternalOnChange?: boolean,
    /** Setup a delegate for when 'updateInternalOnChange' should update internal value */
    updateCondition?: (value: T) => boolean,
+   mutateIncoming?: (draft: Draft<T>) => void,
    /** Bind internal setter to and external (The external will be called when the internal is call. It will NOT be called on updateInternalOnChange ) */
    bindExternalSetter?: (value: T) => void
 }
@@ -28,9 +29,13 @@ const useStateExtra = <T>(
    value: T,
    opt?: IUseStateExtraOptions<T>
 ): ReturnType<T> => {
-   const { bindExternalSetter, updateCondition, updateInternalOnChange: updateOnChange } = opt || {}
+   const { bindExternalSetter, updateCondition, updateInternalOnChange, mutateIncoming: updateMutation } = opt || {}
    // internal
-   const [internalValue, internalSetter] = useState(value)
+   let firstComingValue = value
+   if (updateMutation) {
+      firstComingValue = produce(value, updateMutation)
+   }
+   const [internalValue, internalSetter] = useState(firstComingValue)
    // enable bind of setter to external
    const combinedSetter = useCallback((newValue: T) => {
       internalSetter(newValue)
@@ -43,10 +48,15 @@ const useStateExtra = <T>(
    }, [internalValue, combinedSetter])
    // add update value check
    useEffect(() => {
-      if (updateOnChange && (!updateCondition || updateCondition(value))) {
-         internalSetter(value)
+      if (updateInternalOnChange && (!updateCondition || updateCondition(value))) {
+         if (updateMutation) {
+            const mutatedValue = produce(value, updateMutation)
+            internalSetter(mutatedValue)
+         } else {
+            internalSetter(value)
+         }
       }
-   }, [updateCondition, updateOnChange, value])
+   }, [updateCondition, updateInternalOnChange, updateMutation, value])
    // return [value, normalSetter with optional bind, immer produce method as setter ]
    return [internalValue, combinedSetter, immerSetter]
 }
