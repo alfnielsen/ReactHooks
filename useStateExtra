@@ -1,0 +1,24 @@
+import { Dispatch, SetStateAction, useCallback, useEffect, useState } from "react"
+import produce, { Draft } from "immer"
+
+type ReturnType<T> = [
+   T,
+   Dispatch<SetStateAction<T>>,
+   (recipe: (draft: Draft<T>) => void) => void
+]
+
+const useStateExtra = <T>(value: T, updateOnChange = false, updateCondition: (value: T) => boolean): ReturnType<T> => {
+   const [internalValue, normalSetter] = useState(value)
+   const immerSetter = useCallback((recipe: (draft: Draft<T>) => void) => {
+      normalSetter(produce(internalValue, recipe))
+   }, [internalValue])
+   useEffect(() => {
+      if (updateOnChange && (!updateCondition || updateCondition(value))) {
+         normalSetter(value)
+      }
+   }, [updateCondition, updateOnChange, value])
+
+   return [internalValue, normalSetter, immerSetter]
+}
+
+export default useStateExtra
