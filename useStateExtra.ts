@@ -6,13 +6,29 @@ type ReturnType<T> = [
    (value: T) => void,
    (recipe: (draft: Draft<T>) => void) => void
 ]
-
+interface IUseStateExtraOptions<T> {
+   /** Update the internal state, when incoming value changes  */
+   updateInternalOnChange?: boolean,
+   /** Setup a delegate for when 'updateInternalOnChange' should update internal value */
+   updateCondition?: (value: T) => boolean,
+   /** Bind internal setter to and external (The external will be called when the internal is call. It will NOT be called on updateInternalOnChange ) */
+   bindExternalSetter?: (value: T) => void
+}
+/**
+ * useState Extra!
+ * Adding options:
+ * - Produce setter (immer produce delegate)
+ * - Bind setter to external setter
+ * - Auto update when incoming value changes
+ * 
+ * @param value 
+ * @param opt 
+ */
 const useStateExtra = <T>(
    value: T,
-   updateOnChange = false,
-   updateCondition?: (value: T) => boolean,
-   bindExternalSetter?: (value: T) => boolean
+   opt?: IUseStateExtraOptions<T>
 ): ReturnType<T> => {
+   const { bindExternalSetter, updateCondition, updateInternalOnChange: updateOnChange } = opt || {}
    // internal
    const [internalValue, internalSetter] = useState(value)
    // enable bind of setter to external
@@ -31,7 +47,7 @@ const useStateExtra = <T>(
          internalSetter(value)
       }
    }, [updateCondition, updateOnChange, value])
-
+   // return [value, normalSetter with optional bind, immer produce method as setter ]
    return [internalValue, combinedSetter, immerSetter]
 }
 
