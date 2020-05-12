@@ -1,27 +1,22 @@
 import produce, { Draft } from "immer"
 import { useCallback, useEffect, useState } from "react"
 
+type DraftMethod<T> = (draft: Draft<T>) => void
+
 type ReturnType<T> = [
    T,
    (value: T) => void,
    (recipe: (draft: Draft<T>) => void) => void
 ]
+
 interface IUseStateExtraOptions<T> {
-   /** Update the internal state, when incoming value changes  */
-   updateInternalOnChange?: boolean,
-   /** Setup a delegate for when 'updateInternalOnChange' should update internal value */
-   updateCondition?: (value: T) => boolean,
-   mutateIncoming?: (draft: Draft<T>) => void,
-   /** Bind internal setter to and external (The external will be called when the internal is call. It will NOT be called on updateInternalOnChange ) */
-   bindExternalSetter?: (value: T) => void
+   /** Update state when incoming value is changed. Can be set to `true` or an update method (immer produce method) */
+   autoUpdate?: (boolean | ((draft: Draft<T>) => void)),
+   /** Bind another onChange method. Used to push state to external onChange method. */
+   bindUpdate?: (value: T) => void
 }
 /**
  * useState Extra!
- * Adding options:
- * - Produce setter (immer produce delegate)
- * - Bind setter to external setter
- * - Auto update when incoming value changes
- * 
  * @param value 
  * @param opt 
  */
@@ -29,36 +24,34 @@ const useStateExtra = <T>(
    value: T,
    opt?: IUseStateExtraOptions<T>
 ): ReturnType<T> => {
-   const { bindExternalSetter, updateCondition, updateInternalOnChange, mutateIncoming: updateMutation } = opt || {}
-   // internal
+   const { autoUpdate, bindUpdate: bind } = opt ?? {}
    let firstComingValue = value
-   if (updateMutation) {
-      firstComingValue = produce(value, updateMutation)
+   if (autoUpdate && autoUpdate instanceof Function) {
+      firstComingValue = produce(value, autoUpdate)
    }
    const [internalValue, internalSetter] = useState(firstComingValue)
    // enable bind of setter to external
-   const combinedSetter = useCallback((newValue: T) => {
+   const set = useCallback((newValue: T) => {
       internalSetter(newValue)
-      bindExternalSetter && bindExternalSetter(newValue)
-   }, [bindExternalSetter, internalSetter])
+      bind && bind(newValue)
+   }, [bind])
    // add immer produce setter
-   const immerSetter = useCallback((recipe: (draft: Draft<T>) => void) => {
+   const update = useCallback((recipe: DraftMethod<T>) => {
       const newValue = produce(internalValue, recipe)
-      combinedSetter(newValue)
-   }, [internalValue, combinedSetter])
+      set(newValue)
+   }, [internalValue, set])
    // add update value check
    useEffect(() => {
-      if (updateInternalOnChange && (!updateCondition || updateCondition(value))) {
-         if (updateMutation) {
-            const mutatedValue = produce(value, updateMutation)
-            internalSetter(mutatedValue)
-         } else {
-            internalSetter(value)
+      if (autoUpdate) {
+         let mutatedValue = value
+         if (autoUpdate instanceof Function) {
+            mutatedValue = produce(value, autoUpdate)
          }
+         internalSetter(mutatedValue)
       }
-   }, [updateCondition, updateInternalOnChange, updateMutation, value])
+   }, [autoUpdate, value])
    // return [value, normalSetter with optional bind, immer produce method as setter ]
-   return [internalValue, combinedSetter, immerSetter]
+   return [internalValue, set, update]
 }
 
 export default useStateExtra
